@@ -388,6 +388,22 @@ class InstagramAPI:
                 pass
             return False
     
+    def find_urls(self, text):
+
+        # SEE https://github.com/mgp25/Instagram-API/blob/master/src/Utils.php
+        # method extractURLs($text)
+        #
+        # Using this issue https://github.com/mgp25/Instagram-API/issues/1445#issuecomment-318919912
+        # You can try this regex here https://regex101.com/r/JakTLD/5
+        
+        regex = r"((?:(http|https|Http|Https|rtsp|Rtsp):\/\/(?:(?:[a-zA-Z0-9\$\-\_\.\+\!\*\'\(\)\,\;\?\&\=]|(?:\%[a-fA-F0-9]{2})){1,64}(?:\:(?:[a-zA-Z0-9\$\-\_\.\+\!\*\'\(\)\,\;\?\&\=]|(?:\%[a-fA-F0-9]{2})){1,25})?\@)?)?((?:(?:[a-zA-Z0-9\_][a-zA-Z0-9\_\-]{0,64}\.)+(?:(?:aero|arpa|asia|a[cdefgilmnoqrstuwxz])|(?:biz|b[abdefghijmnorstvwyz])|(?:cat|com|coop|c[acdfghiklmnoruvxyz])|d[ejkmoz]|(?:edu|e[cegrstu])|f[ijkmor]|(?:gov|g[abdefghilmnpqrstuwy])|h[kmnrtu]|(?:info|int|i[delmnoqrst])|(?:jobs|j[emop])|k[eghimnprwyz]|l[abcikrstuvy]|(?:mil|mobi|museum|m[acdeghklmnopqrstuvwxyz])|(?:name|net|n[acefgilopruz])|(?:org|om)|(?:pro|p[aefghklmnrstwy])|qa|r[eosuw]|s[abcdeghijklmnortuvyz]|(?:tel|travel|t[cdfghjklmnoprtvwz])|u[agksyz]|v[aceginu]|w[fs]|y[et]|z[amw]))|(?:(?:25[0-5]|2[0-4][0-9]|[0-1][0-9]{2}|[1-9][0-9]|[1-9])\.(?:25[0-5]|2[0-4][0-9]|[0-1][0-9]{2}|[1-9][0-9]|[1-9]|0)\.(?:25[0-5]|2[0-4][0-9]|[0-1][0-9]{2}|[1-9][0-9]|[1-9]|0)\.(?:25[0-5]|2[0-4][0-9]|[0-1][0-9]{2}|[1-9][0-9]|[0-9])))(?:\:\d{1,5})?)(\/(?:(?:[a-zA-Z0-9\;\/\?\:\@\&\=\#\~\-\.\+\!\*\'\(\)\,\_])|(?:\%[a-fA-F0-9]{2}))*)?(?:\b|$)"
+
+        urls = []
+        matches = re.finditer(regex, text, re.UNICODE)
+        for matchNum, match in enumerate(matches):
+            urls.append(match.group())
+        return urls
+
     def direct_message(self, text, recipients):
         if type(recipients) != type([]):
             recipients = [str(recipients)]
@@ -409,13 +425,32 @@ class InstagramAPI:
                 'type' : 'form-data',
                 'name' : 'thread',
                 'data' : '["0"]',
-            },
-            {
+            }
+        ]
+
+        # Check if URLS are present in text 
+
+        urls = self.find_urls(text)
+        if(len(urls) >= 1):
+            endpoint = 'direct_v2/threads/broadcast/link/'
+            bodies.append({
+                'type' : 'form-data',
+                'name' : 'link_text',
+                'data' : text or '',
+            })
+            bodies.append({
+                'type' : 'form-data',
+                'name' : 'link_urls',
+                'data' : json.dumps(self.find_urls(text)),
+            })
+        else:
+            bodies.append({
                 'type' : 'form-data',
                 'name' : 'text',
                 'data' : text or '',
-            },
-        ]
+            })
+
+
         data = self.buildBody(bodies,boundary)
         self.s.headers.update (
             {
@@ -428,7 +463,7 @@ class InstagramAPI:
             }
         )
         #self.SendRequest(endpoint,post=data) #overwrites 'Content-type' header and boundary is missed
-        response = self.s.post(self.API_URL + endpoint, data=data)
+        response = self.s.post(self.API_URL + endpoint, data=data.encode('utf-8'))      # Added encoding for emoji support
         
         if response.status_code == 200:
             self.LastResponse = response
