@@ -403,67 +403,19 @@ class InstagramAPI:
         for matchNum, match in enumerate(matches):
             urls.append(match.group())
         return urls
+        
+    def _generateRequestWithBoundaries(self, endpoint, data, boundary):
+        m = MultipartEncoder(data, boundary=boundary)
+        self.s.headers.update({'X-IG-Capabilities': '3Q4=',
+                               'X-IG-Connection-Type': 'WIFI',
+                               'Cookie2': '$Version=1',
+                               'Accept-Language': 'en-US',
+                               'Accept-Encoding': 'gzip, deflate',
+                               'Content-type': m.content_type,
+                               'Connection': 'close',
+                               'User-Agent': self.USER_AGENT})
 
-    def direct_message(self, text, recipients):
-        if type(recipients) != type([]):
-            recipients = [str(recipients)]
-        recipient_users = '"",""'.join(str(r) for r in recipients)
-        endpoint = 'direct_v2/threads/broadcast/text/'
-        boundary = self.uuid
-        bodies   = [
-            {
-                'type' : 'form-data',
-                'name' : 'recipient_users',
-                'data' : '[["{}"]]'.format(recipient_users),
-            },
-            {
-                'type' : 'form-data',
-                'name' : 'client_context',
-                'data' : self.uuid,
-            },
-            {
-                'type' : 'form-data',
-                'name' : 'thread',
-                'data' : '["0"]',
-            }
-        ]
-
-        # Check if URLS are present in text 
-
-        urls = self.find_urls(text)
-        if(len(urls) >= 1):
-            endpoint = 'direct_v2/threads/broadcast/link/'
-            bodies.append({
-                'type' : 'form-data',
-                'name' : 'link_text',
-                'data' : text or '',
-            })
-            bodies.append({
-                'type' : 'form-data',
-                'name' : 'link_urls',
-                'data' : json.dumps(self.find_urls(text)),
-            })
-        else:
-            bodies.append({
-                'type' : 'form-data',
-                'name' : 'text',
-                'data' : text or '',
-            })
-
-
-        data = self.buildBody(bodies,boundary)
-        self.s.headers.update (
-            {
-                'User-Agent' : self.USER_AGENT,
-                'Proxy-Connection' : 'keep-alive',
-                'Connection': 'keep-alive',
-                'Accept': '*/*',
-                'Content-Type': 'multipart/form-data; boundary={}'.format(boundary),
-                'Accept-Language': 'en-en',
-            }
-        )
-        #self.SendRequest(endpoint,post=data) #overwrites 'Content-type' header and boundary is missed
-        response = self.s.post(self.API_URL + endpoint, data=data.encode('utf-8'))      # Added encoding for emoji support
+        response = self.s.post(self.API_URL + endpoint, data=m.to_string())
         
         if response.status_code == 200:
             self.LastResponse = response
@@ -478,63 +430,73 @@ class InstagramAPI:
             except:
                 pass
             return False
+
+    def direct_message(self, text, recipients):
+        if type(recipients) != type([]):
+            recipients = [str(recipients)]
+        recipient_users = '"",""'.join(str(r) for r in recipients)
         
+        endpoint = 'direct_v2/threads/broadcast/text/'
+        
+        data = {
+            'recipient_users' : '[["{}"]]'.format(recipient_users),
+            '_csrftoken': self.token,
+            'client_context' : self.generateUUID(False),
+            'thread' : '["0"]'
+        }
+
+        # Check if URLS are present in text 
+
+        urls = self.find_urls(text)
+        if(len(urls) >= 1):
+            endpoint = 'direct_v2/threads/broadcast/link/'
+            data.update({
+                'link_text' : text or '',
+                'link_urls' : json.dumps(self.find_urls(text))
+            })
+        else:
+            data.update({'text' : text or ''})
+
+        return self._generateRequestWithBoundaries(endpoint, data, self.uuid)
+        
+
+    def direct_photo(self, photo, recipients, upload_id=None):
+        
+        if type(recipients) != type([]):
+            recipients = [str(recipients)]
+        recipient_users = '"",""'.join(str(r) for r in recipients)
+        endpoint = 'direct_v2/threads/broadcast/upload_photo/'
+
+        if upload_id is None:
+            upload_id = str(int(time.time() * 1000))
+
+        data   = {
+            'recipient_users' : '[["{}"]]'.format(recipient_users),
+            '_csrftoken': self.token,
+            'client_context' : self.generateUUID(False),
+            'thread' : '["0"]',
+            'photo' : ('pending_media_%s.jpg' % upload_id, open(photo, 'rb'), 'application/octet-stream', {'Content-Transfer-Encoding': 'binary'})
+        }
+
+        return self._generateRequestWithBoundaries(endpoint, data, self.uuid)
+
     def direct_share(self, media_id, recipients, text=None):
         if not isinstance(position, list):
             recipients = [str(recipients)]
         recipient_users = '"",""'.join(str(r) for r in recipients)
+        
         endpoint = 'direct_v2/threads/broadcast/media_share/?media_type=photo'
-        boundary = self.uuid
-        bodies = [
-            {
-                'type': 'form-data',
-                'name': 'media_id',
-                'data': media_id,
-            },
-            {
-                'type': 'form-data',
-                'name': 'recipient_users',
-                'data': '[["{}"]]'.format(recipient_users),
-            },
-            {
-                'type': 'form-data',
-                'name': 'client_context',
-                'data': self.uuid,
-            },
-            {
-                'type': 'form-data',
-                'name': 'thread',
-                'data': '["0"]',
-            },
-            {
-                'type': 'form-data',
-                'name': 'text',
-                'data': text or '',
-            },
-        ]
-        data = self.buildBody(bodies, boundary)
-        self.s.headers.update({'User-Agent': self.USER_AGENT,
-                               'Proxy-Connection': 'keep-alive',
-                               'Connection': 'keep-alive',
-                               'Accept': '*/*',
-                               'Content-Type': 'multipart/form-data; boundary={}'.format(boundary),
-                               'Accept-Language': 'en-en'})
-        # self.SendRequest(endpoint,post=data) #overwrites 'Content-type' header and boundary is missed
-        response = self.s.post(self.API_URL + endpoint, data=data)
+        
+        data = {
+            'recipient_users' : '[["{}"]]'.format(recipient_users),
+            '_csrftoken': self.token,
+            'client_context' : self.generateUUID(False),
+            'thread' : '["0"]',
+            'text' : text or '',
+            'media_id' : media_id
+        }
 
-        if response.status_code == 200:
-            self.LastResponse = response
-            self.LastJson = json.loads(response.text)
-            return True
-        else:
-            print("Request return " + str(response.status_code) + " error!")
-            # for debugging
-            try:
-                self.LastResponse = response
-                self.LastJson = json.loads(response.text)
-            except:
-                pass
-            return False
+        return self._generateRequestWithBoundaries(endpoint, data, self.uuid)
 
     def configureVideo(self, upload_id, video, thumbnail, caption=''):
         clip = VideoFileClip(video)
