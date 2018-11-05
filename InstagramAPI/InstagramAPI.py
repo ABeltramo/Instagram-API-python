@@ -67,7 +67,7 @@ class InstagramAPI:
         self.device_id = self.generateDeviceId(m.hexdigest())
         self.setUser(username, password)
         self.isLoggedIn = False
-        self.LastResponse = None
+        self.LastResponse = {}
         self.s = requests.Session()
 
     def setUser(self, username, password):
@@ -958,9 +958,8 @@ class InstagramAPI:
                 response = self.s.post(self.API_URL + endpoint, data=post, verify=verify)
             else:
                 response = self.s.get(self.API_URL + endpoint, verify=verify)
-            break
         except Exception as e:
-            response.error = str(e)
+            self.LastResponse["error"] = str(e)
             return False
 
         if response.status_code == 200:
