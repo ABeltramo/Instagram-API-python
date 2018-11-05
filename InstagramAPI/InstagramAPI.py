@@ -83,7 +83,6 @@ class InstagramAPI:
         """
 
         if proxy is not None:
-            print('Set proxy!')
             proxies = {'http': proxy, 'https': proxy}
             self.s.proxies.update(proxies)
 
@@ -110,7 +109,6 @@ class InstagramAPI:
                     self.timelineFeed()
                     self.getv2Inbox()
                     self.getRecentActivity()
-                    print("Login success!\n")
                     return True
 
     def syncFeatures(self):
@@ -379,7 +377,7 @@ class InstagramAPI:
             self.LastJson = json.loads(response.text)
             return True
         else:
-            print("Request return " + str(response.status_code) + " error!")
+            # print("Request return " + str(response.status_code) + " error!")
             # for debugging
             try:
                 self.LastResponse = response
@@ -422,7 +420,7 @@ class InstagramAPI:
             self.LastJson = json.loads(response.text)
             return True
         else:
-            print ("Request return " + str(response.status_code) + " error!")
+            # print ("Request return " + str(response.status_code) + " error!")
             # for debugging
             try:
                 self.LastResponse = response
@@ -955,28 +953,26 @@ class InstagramAPI:
                                'Accept-Language': 'en-US',
                                'User-Agent': self.USER_AGENT})
 
-        while True:
-            try:
-                if (post is not None):
-                    response = self.s.post(self.API_URL + endpoint, data=post, verify=verify)
-                else:
-                    response = self.s.get(self.API_URL + endpoint, verify=verify)
-                break
-            except Exception as e:
-                print('Except on SendRequest (wait 60 sec and resend): ' + str(e))
-                time.sleep(60)
+        try:
+            if (post is not None):
+                response = self.s.post(self.API_URL + endpoint, data=post, verify=verify)
+            else:
+                response = self.s.get(self.API_URL + endpoint, verify=verify)
+            break
+        except Exception as e:
+            response.error = str(e)
+            return False
 
         if response.status_code == 200:
             self.LastResponse = response
             self.LastJson = json.loads(response.text)
             return True
         else:
-            print("Request return " + str(response.status_code) + " error!")
+            # print("Request return " + str(response.status_code) + " error!")
             # for debugging
             try:
                 self.LastResponse = response
                 self.LastJson = json.loads(response.text)
-                print(self.LastJson)
                 if 'error_type' in self.LastJson and self.LastJson['error_type'] == 'sentry_block':
                     raise SentryBlockException(self.LastJson['message'])
             except SentryBlockException:
