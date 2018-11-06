@@ -965,7 +965,12 @@ class InstagramAPI:
 
         if response.status_code == 200:
             self.LastResponse = response
-            self.LastJson = json.loads(response.text)
+            try:
+                self.LastJson = json.loads(response.text)
+            except Exception as e:
+                self.LastResponse = {}
+                self.LastResponse["error"] = str(e)
+                return False
             return True
         else:
             # print("Request return " + str(response.status_code) + " error!")
