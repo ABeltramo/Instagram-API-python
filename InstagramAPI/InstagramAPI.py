@@ -959,6 +959,7 @@ class InstagramAPI:
             else:
                 response = self.s.get(self.API_URL + endpoint, verify=verify)
         except Exception as e:
+            self.LastResponse = {}
             self.LastResponse["error"] = str(e)
             return False
 
